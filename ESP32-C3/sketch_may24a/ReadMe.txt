@@ -1,0 +1,1 @@
+Tools → Erase All Flash Before Sketch Upload → Enabled

@@ -1,0 +1,39 @@
+# ✅ ۱. ثبت‌نام کاربر تست
+Write-Host "📝 در حال ثبت‌نام..." -ForegroundColor Cyan
+$register = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:3001/api/auth/register" -Method Post -ContentType "application/json" -Body '{"name":"تست خودکار","email":"auto@test.com","password":"123456","phone":"09120009999"}'
+$regData = $register.Content | ConvertFrom-Json
+if ($regData.success) { Write-Host "✅ ثبت‌نام موفق" -ForegroundColor Green } else { Write-Host "❌ خطا: $($regData.message)" -ForegroundColor Red; return }
+
+# ✅ ۲. ورود و استخراج خودکار توکن (بدون نیاز به کپی!)
+Write-Host "🔑 در حال ورود و دریافت توکن..." -ForegroundColor Cyan
+$login = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:3001/api/auth/login" -Method Post -ContentType "application/json" -Body '{"email":"auto@test.com","password":"123456"}'
+$loginData = $login.Content | ConvertFrom-Json
+
+# ✅ این خط جادویی است: توکن را خودکار در متغیر $token ذخیره می‌کند
+$token = $loginData.token
+
+if ($token) { 
+  Write-Host "✅ ورود موفق! توکن ذخیره شد." -ForegroundColor Green
+  Write-Host "🔑 توکن (۵۰ کاراکتر اول): $($token.Substring(0,50))..." -ForegroundColor Gray
+} else { 
+  Write-Host "❌ خطا در دریافت توکن" -ForegroundColor Red; return 
+}
+
+# ✅ ۳. افزودن شماره اضطراری با توکن ذخیره‌شده
+Write-Host "📞 در حال افزودن شماره اضطراری..." -ForegroundColor Cyan
+$emergency = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:3001/api/user/emergency-contacts" -Method Post -ContentType "application/json" -Headers @{"Authorization"="Bearer $token"} -Body '{"phoneNumber":"09120001111","label":"پدر","priority":1}'
+$emergData = $emergency.Content | ConvertFrom-Json
+if ($emergData.success) { Write-Host "✅ شماره اضطراری اضافه شد!" -ForegroundColor Green } else { Write-Host "❌ خطا: $($emergData.message)" -ForegroundColor Red; return }
+
+# ✅ ۴. دریافت لیست شماره‌ها برای تأیید نهایی
+Write-Host "📋 دریافت لیست شماره‌های اضطراری..." -ForegroundColor Cyan
+$getList = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:3001/api/user/emergency-contacts" -Method Get -Headers @{"Authorization"="Bearer $token"}
+$listData = $getList.Content | ConvertFrom-Json
+if ($listData.success) {
+  Write-Host "✅ لیست دریافت شد. تعداد شماره‌ها: $($listData.data.Count)" -ForegroundColor Green
+  $listData.data | ForEach-Object { Write-Host "   • $($_.phoneNumber) - $($_.label) (اولویت: $($_.priority))" -ForegroundColor White }
+}
+
+# ✅ ۵. نمایش خلاصه‌ی نهایی
+Write-Host "`n🎉 تست بک‌اند با موفقیت کامل شد!" -ForegroundColor Green
+Write-Host "📦 متغیر `$token هنوز در حافظه است و می‌توانید برای تست‌های بعدی استفاده کنید." -ForegroundColor Yellow
