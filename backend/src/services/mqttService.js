@@ -486,77 +486,108 @@ function disconnect() {
 }
 
 async function checkAndExecuteScenarios() {
+  let client;
   try {
-    const { Scenario, Device, User } = require('../models');
-    
+    const { Scenario, Device, User, Sequelize } = require('../models');
+    const { Op } = Sequelize;
+
+    // قفل کردن اجرا برای جلوگیری از Race Condition
+    if (checkAndExecuteScenarios._isRunning) {
+      console.warn('⚠️ Scenario scheduler already running, skipping this round');
+      return;
+    }
+    checkAndExecuteScenarios._isRunning = true;
+
     const scenarios = await Scenario.findAll({
       where: { enabled: true },
-      include: [{ 
-        model: Device, 
-        as: 'device', 
-        include: [{ model: User, as: 'user' }] 
+      include: [{
+        model: Device,
+        as: 'device',
+        required: true,
+        include: [{ model: User, as: 'user', required: true }]
       }]
     });
-    
+
     const now = new Date();
     const executedThisRound = new Set();
-    
+    const executionPromises = [];
+
     for (const scenario of scenarios) {
       try {
         const device = scenario.device;
         const user = device?.user;
         if (!device || !user) continue;
-        
+
         if (executedThisRound.has(scenario.id)) continue;
-        
+
         const deviceTz = device.timezone || 'Asia/Tehran';
         let shouldExecute = false;
-        
+
         if (scenario.type === 'once') {
           if (scenario.datetime && !scenario.executed) {
             const scenarioTime = new Date(scenario.datetime);
             if (now >= scenarioTime) {
               shouldExecute = true;
-              scenario.executed = true;
-              await scenario.save();
+              // آپدیت وضعیت اجرا به صورت اتمیک
+              await Scenario.update(
+                { executed: true },
+                { 
+                  where: { id: scenario.id, executed: false },
+                  limit: 1
+                }
+              );
               
+              // تأیید آپدیت
               const updated = await Scenario.findByPk(scenario.id);
               if (updated?.executed) {
                 executedThisRound.add(scenario.id);
               } else {
+                console.warn(`⚠️ Scenario ${scenario.id} was already executed by another process`);
                 continue;
               }
             }
           }
-        } 
+        }
         else if (scenario.type === 'recurring') {
           const nowInDeviceTz = new Date().toLocaleString('en-US', { timeZone: deviceTz });
           const timeParts = nowInDeviceTz.split(' ');
           const [nowHour, nowMinute] = timeParts[1]?.split(':').map(Number) || [0, 0];
           const nowDay = new Date().getDay();
-          
+
           if (scenario.time) {
             const [scHour, scMinute] = scenario.time.split(':').map(Number);
             const isTimeMatch = (nowHour === scHour && nowMinute === scMinute);
             const isDayMatch = !scenario.days?.length || scenario.days.includes(nowDay);
-            
+
             if (isTimeMatch && isDayMatch) {
               shouldExecute = true;
             }
           }
         }
-        
+
         if (shouldExecute) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-          await sendCommand(device.id, scenario.channelIndex, scenario.action === 'on');
-          console.log(`✅ Scenario ${scenario.id} executed successfully`);
+          // جمع‌آوری Promiseها برای اجرای موازی ایمن
+          executionPromises.push(
+            sendCommand(device.id, scenario.channelIndex, scenario.action === 'on')
+              .then(() => console.log(`✅ Scenario ${scenario.id} executed successfully`))
+              .catch(err => console.error(`❌ Scenario ${scenario.id} failed:`, err))
+          );
         }
       } catch (err) {
-        console.error(`❌ Error executing scenario ${scenario?.id}:`, err);
+        console.error(`❌ Error processing scenario ${scenario?.id}:`, err);
       }
     }
+
+    // انتظار برای تکمیل تمام عملیات اجرایی
+    if (executionPromises.length > 0) {
+      await Promise.allSettled(executionPromises);
+      console.log(`📊 Executed ${executionPromises.length} scenario(s) this round`);
+    }
+
   } catch (err) {
     console.error('❌ Error in checkAndExecuteScenarios:', err);
+  } finally {
+    checkAndExecuteScenarios._isRunning = false;
   }
 }
 

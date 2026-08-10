@@ -70,14 +70,18 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://postgres:postgres_password_123@postgres:5432/smart_home
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-SecureDbPassword_ChangeMe!}@postgres:5432/smart_home
       INFLUXDB_URL: http://influxdb:8086
-      INFLUXDB_TOKEN: admin
+      INFLUXDB_TOKEN: ${INFLUXDB_TOKEN:-admin_token_change_me}
       INFLUXDB_ORG: smart-home
       INFLUXDB_BUCKET: iot-data
       REDIS_URL: redis://redis:6379
       MQTT_BROKER: mqtt://mosquitto:1883
-      JWT_SECRET: your_super_secret_jwt_key_change_this
+      JWT_SECRET: ${JWT_SECRET:-ChangeThisToARandomStringAtLeast32CharsLong}
+      FRONTEND_URL: ${FRONTEND_URL:-https://your-domain.com}
+      DB_PASSWORD: ${DB_PASSWORD:-SecureDbPassword_ChangeMe!}
+      MQTT_USER: ${MQTT_USER:-smart_home_user}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-ChangeMeMQTTPass}
     depends_on:
       - postgres
       - influxdb

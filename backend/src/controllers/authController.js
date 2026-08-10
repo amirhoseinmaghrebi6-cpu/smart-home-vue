@@ -9,8 +9,8 @@ const TOKEN_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
 function setAuthCookie(res, token) {
   res.cookie(TOKEN_COOKIE, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',  // ✅ فقط در HTTPS
+    sameSite: 'strict',  // ✅ تغییر از lax به strict برای امنیت بیشتر
     maxAge: TOKEN_MAX_AGE_MS,
     path: '/'
   })

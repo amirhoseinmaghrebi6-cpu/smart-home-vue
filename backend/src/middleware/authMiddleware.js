@@ -13,6 +13,12 @@ exports.authenticate = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'دسترسی غیرمجاز: توکن ارسال نشده' })
     }
 
+    // ✅ اعتبارسنجی JWT_SECRET قبل از استفاده
+    if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'dev_jwt_secret_change_in_production' || process.env.JWT_SECRET.startsWith('CHANGE_THIS')) {
+      console.error('❌ CRITICAL: JWT_SECRET is not properly configured!')
+      return res.status(500).json({ success: false, message: 'پیکربندی سرور نامعتبر است' })
+    }
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
     
     // ✅ پشتیبانی از هر دو کلید احتمالی: id یا userId
