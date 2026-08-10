@@ -5,6 +5,7 @@ const cors = require('cors')
 const helmet = require('helmet')
 const cookieParser = require('cookie-parser')
 const rateLimit = require('express-rate-limit')
+const jwt = require('jsonwebtoken')  // ✅ اضافه‌شده برای احراز هویت Socket.io
 const mqttService = require('./services/mqttService')
 const http = require('http')              // ✅ جدید: برای ساخت سرور HTTP
 const { Server } = require('socket.io')   // ✅ جدید: ایمپورت Socket.io
@@ -86,16 +87,40 @@ const io = new Server(server, {
 // ✅ ذخیره io در app برای دسترسی در سرویس‌ها (مثل mqttService)
 app.set('socketio', io)
 
+// ✅ Middleware اعتبارسنجی توکن برای Socket.io
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.replace('Bearer ', '')
+  
+  if (!token) {
+    console.warn(`⚠️ Socket connection rejected: No token provided from ${socket.handshake.address}`)
+    return next(new Error('Authentication required: No token provided'))
+  }
+  
+  // ✅ اعتبارسنجی JWT_SECRET
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.startsWith('CHANGE_THIS') || process.env.JWT_SECRET === 'dev_jwt_secret_change_in_production') {
+    console.error('❌ CRITICAL: JWT_SECRET not configured for Socket.io auth!')
+    return next(new Error('Server configuration error'))
+  }
+  
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    socket.userId = decoded.id || decoded.userId || decoded.user?.id
+    
+    if (!socket.userId) {
+      return next(new Error('Invalid token structure'))
+    }
+    
+    console.log(`✅ Socket authenticated: User ${socket.userId}`)
+    next()
+  } catch (err) {
+    console.warn(`⚠️ Socket auth failed: ${err.message}`)
+    next(new Error('Authentication failed: Invalid or expired token'))
+  }
+})
+
 // ✅ هندل اتصال کلاینت‌ها
 io.on('connection', (socket) => {
-  console.log(`🔗 Socket client connected: ${socket.id}`)
-  
-  // ✅ دریافت توکن احراز هویت از کلاینت (اختیاری اما توصیه‌شده)
-  const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.replace('Bearer ', '')
-  if (token) {
-    // اینجا می‌توانید توکن را اعتبارسنجی کنید
-    console.log(`🔐 Auth token received for socket ${socket.id}`)
-  }
+  console.log(`🔗 Socket client connected: ${socket.id} (User: ${socket.userId || 'unknown'})`)
   
   socket.on('disconnect', () => {
     console.log(`🔌 Socket client disconnected: ${socket.id}`)
