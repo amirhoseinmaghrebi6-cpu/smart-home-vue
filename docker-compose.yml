@@ -1,0 +1,154 @@
+version: '3.8'
+
+services:
+  # دیتابیس PostgreSQL
+  postgres:
+    image: postgres:16-alpine
+    container_name: smart-home-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: smart_home
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_password_123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - smart-home-net
+
+  # دیتابیس InfluxDB (Time-Series)
+  influxdb:
+    image: influxdb:2-alpine
+    container_name: smart-home-influxdb
+    restart: always
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: influxdb_password_123
+      DOCKER_INFLUXDB_INIT_ORG: smart-home
+      DOCKER_INFLUXDB_INIT_BUCKET: iot-data
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    networks:
+      - smart-home-net
+
+  # Redis (Cache)
+  redis:
+    image: redis:7-alpine
+    container_name: smart-home-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - smart-home-net
+
+  # Mosquitto (MQTT Broker)
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: smart-home-mosquitto
+    restart: always
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    networks:
+      - smart-home-net
+
+  # بک‌اند Node.js
+  backend:
+    build: ./backend
+    container_name: smart-home-backend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:postgres_password_123@postgres:5432/smart_home
+      INFLUXDB_URL: http://influxdb:8086
+      INFLUXDB_TOKEN: admin
+      INFLUXDB_ORG: smart-home
+      INFLUXDB_BUCKET: iot-data
+      REDIS_URL: redis://redis:6379
+      MQTT_BROKER: mqtt://mosquitto:1883
+      JWT_SECRET: your_super_secret_jwt_key_change_this
+    depends_on:
+      - postgres
+      - influxdb
+      - redis
+      - mosquitto
+    networks:
+      - smart-home-net
+
+  # فرانت‌اند Vue + Nginx
+  frontend:
+    build: .
+    container_name: smart-home-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - smart-home-net
+
+  # Portainer (مدیریت گرافیکی Docker)
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: smart-home-portainer
+    restart: always
+    ports:
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    networks:
+      - smart-home-net
+
+  # Prometheus (مانیتورینگ)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: smart-home-prometheus
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - prometheus_data:/prometheus
+    networks:
+      - smart-home-net
+
+  # Grafana (داشبورد مانیتورینگ)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: smart-home-grafana
+    restart: always
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - smart-home-net
+
+volumes:
+  postgres_data:
+  influxdb_data:
+  redis_data:
+  mosquitto_data:
+  mosquitto_log:
+  portainer_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  smart-home-net:
+    driver: bridge
