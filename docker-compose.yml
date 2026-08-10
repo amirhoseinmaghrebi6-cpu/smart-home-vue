@@ -9,7 +9,7 @@ services:
     environment:
       POSTGRES_DB: smart_home
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres_password_123
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-u!I+(bUS1HhdqvSHZ$wMAy-M7Ci=GDYr}
     ports:
       - "5432:5432"
     volumes:
@@ -25,7 +25,7 @@ services:
     environment:
       DOCKER_INFLUXDB_INIT_MODE: setup
       DOCKER_INFLUXDB_INIT_USERNAME: admin
-      DOCKER_INFLUXDB_INIT_PASSWORD: influxdb_password_123
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUXDB_PASSWORD:-SecureInfluxPass!}
       DOCKER_INFLUXDB_INIT_ORG: smart-home
       DOCKER_INFLUXDB_INIT_BUCKET: iot-data
     ports:
@@ -40,6 +40,7 @@ services:
     image: redis:7-alpine
     container_name: smart-home-redis
     restart: always
+    command: redis-server --requirepass ${REDIS_PASSWORD:-yftq!134Ng(!s-iR(6$T1c1%eeSFKyS_}
     ports:
       - "6379:6379"
     volumes:
@@ -55,6 +56,8 @@ services:
     ports:
       - "1883:1883"
       - "9001:9001"
+    environment:
+      MOSQUITTO_PASSWORD: ${MQTT_PASSWORD:-5@s$P(Ozfk8Cr6IMMqB18d*yiX@Kt-@)}
     volumes:
       - mosquitto_data:/mosquitto/data
       - mosquitto_log:/mosquitto/log
@@ -70,18 +73,18 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-SecureDbPassword_ChangeMe!}@postgres:5432/smart_home
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-u!I+(bUS1HhdqvSHZ$wMAy-M7Ci=GDYr}@postgres:5432/smart_home
       INFLUXDB_URL: http://influxdb:8086
-      INFLUXDB_TOKEN: ${INFLUXDB_TOKEN:-admin_token_change_me}
+      INFLUXDB_TOKEN: ${INFLUXDB_TOKEN:-d42fd690d42ed9753665652bb3945acbafb58b01c8b7edf3308b6607ed0c1c9c6d5c1f0e39a7d00c5ca24a5cea35e6a4e205dce1c5c099830331e3a6f1843af6}
       INFLUXDB_ORG: smart-home
       INFLUXDB_BUCKET: iot-data
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:-yftq!134Ng(!s-iR(6$T1c1%eeSFKyS_}@redis:6379
       MQTT_BROKER: mqtt://mosquitto:1883
-      JWT_SECRET: ${JWT_SECRET:-ChangeThisToARandomStringAtLeast32CharsLong}
+      JWT_SECRET: ${JWT_SECRET:-9a40676872a1314f74c0a413ae0764359b3755ae98de750aec963223153cf34f27168fb9be0e031ccd03dbc4c29ad2616704b7d198f0a714dab385308e52b0ee}
       FRONTEND_URL: ${FRONTEND_URL:-https://your-domain.com}
-      DB_PASSWORD: ${DB_PASSWORD:-SecureDbPassword_ChangeMe!}
+      DB_PASSWORD: ${DB_PASSWORD:-u!I+(bUS1HhdqvSHZ$wMAy-M7Ci=GDYr}
       MQTT_USER: ${MQTT_USER:-smart_home_user}
-      MQTT_PASSWORD: ${MQTT_PASSWORD:-ChangeMeMQTTPass}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-5@s$P(Ozfk8Cr6IMMqB18d*yiX@Kt-@)}
     depends_on:
       - postgres
       - influxdb
