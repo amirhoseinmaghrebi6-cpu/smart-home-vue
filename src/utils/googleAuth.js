@@ -1,7 +1,8 @@
 // src/utils/googleAuth.js
 
 // برای تست بدون اینترنت: این مقدار را true بگذارید
-export const USE_MOCK_GOOGLE = true
+// ⚠️ هشدار امنیتی: قبل از استقرار Production حتماً به false تغییر دهید
+export const USE_MOCK_GOOGLE = process.env.VITE_USE_MOCK_GOOGLE === 'true' || false
 
 export function initGoogleAuth(clientId, onSuccess, onError) {
   // اگر حالت تستی فعال باشد، نیازی به لود اسکریپت گوگل نیست
