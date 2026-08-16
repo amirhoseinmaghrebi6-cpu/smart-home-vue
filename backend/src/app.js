@@ -240,3 +240,5 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // âœ… Ø§Ú©Ø³Ù¾ÙˆØ±Øª app Ø¨Ø±Ø§ÛŒ ØªØ³Øªâ€ŒÙ‡Ø§
 module.exports = app
+
+module.exports = app;
