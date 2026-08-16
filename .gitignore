@@ -22,3 +22,8 @@ docker-compose.env.local
 # Allow example files
 !docker-compose.env.example
 !backend/.env.example
+
+# Secrets
+backend/.env
+.env
+*.env.local
