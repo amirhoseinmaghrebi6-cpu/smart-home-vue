@@ -4,7 +4,8 @@ const router = express.Router();
 const { authenticate } = require('../middleware/authMiddleware');
 const { Op } = require('sequelize');
 const { User, EmergencyContact, Space, Device, Scenario } = require('../models');
-const mqttService = require('../services/mqttService'); // ✅ ایمپورت سرویس MQTT
+const mqttService = require('../services/mqttService');
+const logger = require('../utils/logger'); // ✅ افزودن لاگر
 
 // ==================== توابع کمکی داخلی ====================
 
@@ -68,7 +69,7 @@ router.get('/profile', authenticate, async (req, res) => {
     });
     res.json({ success: true, data: user });
   } catch (err) {
-    console.error('Profile error:', err);
+    logger.error('Profile error:', err);
     res.status(500).json({ success: false, message: 'خطای سرور' });
   }
 });
@@ -78,7 +79,7 @@ router.get('/dashboard', authenticate, async (req, res) => {
     const data = await buildDashboardTree(req.user.id)
     res.json({ success: true, data });
   } catch (err) {
-    console.error('❌ Dashboard error:', err);
+    logger.error('Dashboard error:', err);
     res.status(500).json({ success: false, message: 'خطای سرور در دریافت داشبورد' })
   }
 });
@@ -94,7 +95,7 @@ router.put('/profile', authenticate, async (req, res) => {
     await user.save();
     res.json({ success: true, message: 'پروفایل بروزرسانی شد', data: { id: user.id, name: user.name, email: user.email, phone: user.phone, preferences: user.preferences } });
   } catch (err) {
-    console.error('Update profile error:', err);
+    logger.error('Update profile error:', err);
     res.status(500).json({ success: false, message: 'خطای سرور' });
   }
 });
@@ -114,7 +115,7 @@ router.get('/devices', authenticate, async (req, res) => {
     });
     res.json({ success: true, data: devices });
   } catch (err) {
-    console.error('❌ Error fetching devices:', err);
+    logger.error('Error fetching devices:', err);
     res.status(500).json({ success: false, message: 'خطای سرور در دریافت دستگاه‌ها' });
   }
 });
@@ -153,7 +154,7 @@ router.post('/devices', authenticate, async (req, res) => {
       channels: initialChannels  // ← ← ← حیاتی
     });
     
-    console.log(`🆕 Device created: ${newDevice.id} with ${channelCount} channels`);
+    logger.info(`🆕 Device created: ${newDevice.id} with ${channelCount} channels`);
 
     // ✅ ثبت دسترسی مالک
     await DeviceAccess.findOrCreate({
@@ -164,7 +165,7 @@ router.post('/devices', authenticate, async (req, res) => {
     res.status(201).json({ success: true, message: 'دستگاه جدید اضافه شد', data: newDevice });
     
   } catch (err) {
-    console.error('❌ Error creating device:', err);
+    logger.error('Error creating device:', err);
     res.status(500).json({ success: false, message: err.message || 'خطای سرور در افزودن دستگاه' });
   }
 });
@@ -192,7 +193,7 @@ if (device.pairedDeviceId) {
     ? req.body.channelIndex 
     : (device.channelIndex ?? 0);
   
-  console.log(`📤 Sending command to ESP: channel=${chIdx}, state=${req.body.status}`);
+  logger.info(`📤 Sending command to ESP: channel=${chIdx}, state=${req.body.status}`);
   
   await mqttService.sendCommand(
     req.params.id,
@@ -229,13 +230,13 @@ if (req.body.channelIndex !== undefined && req.body.status !== undefined) {
     await device.update(req.body);
     res.json({ success: true, data: device });
   } catch (err) { 
-    console.error('Update device error:', err);
+    logger.error('Update device error:', err);
     res.status(500).json({ success: false, message: err.message }); 
   }
 });
 
 router.delete('/devices/:id', authenticate, async (req, res) => {
-  console.log(`🗑️ Delete request: userId=${req.user.id}, deviceId=${req.params.id}`);
+  logger.info(`🗑️ Delete request: userId=${req.user.id}, deviceId=${req.params.id}`);
   
   try {
     const { DeviceAccess, Device } = require('../models');
@@ -249,10 +250,10 @@ router.delete('/devices/:id', authenticate, async (req, res) => {
       }
     });
     
-    console.log(`🔍 DeviceAccess lookup: ${access ? `found (role=${access.role})` : 'NOT FOUND'}`);
+    logger.debug(`🔍 DeviceAccess lookup: ${access ? `found (role=${access.role})` : 'NOT FOUND'}`);
     
     if (!access) {
-      console.warn(`⚠️ Delete denied: user ${req.user.id} is not owner of device ${req.params.id}`);
+      logger.warn(`⚠️ Delete denied: user ${req.user.id} is not owner of device ${req.params.id}`);
       return res.status(403).json({ 
         success: false, 
         message: 'فقط مالک می‌تواند دستگاه را حذف کند' 
@@ -261,7 +262,7 @@ router.delete('/devices/:id', authenticate, async (req, res) => {
     
     // ✅ ۲. پیدا کردن دستگاه
     const device = await Device.findByPk(req.params.id);
-    console.log(`🔍 Device lookup: ${device ? `found (pairedDeviceId=${device.pairedDeviceId})` : 'NOT FOUND'}`);
+    logger.debug(`🔍 Device lookup: ${device ? `found (pairedDeviceId=${device.pairedDeviceId})` : 'NOT FOUND'}`);
     
     if (!device) {
       return res.status(404).json({ 
@@ -280,16 +281,16 @@ router.delete('/devices/:id', authenticate, async (req, res) => {
       });
       
       mqttService.getClient()?.publish(unpairTopic, payload, { qos: 1 });
-      console.log(`🔓 Unpair command sent to ${unpairTopic}`);
+      logger.info(`🔓 Unpair command sent to ${unpairTopic}`);
     }
     
     // ✅ ۴. حذف دسترسی‌ها
     const accessDeleted = await DeviceAccess.destroy({ where: { deviceId: device.id } });
-    console.log(`🗑️ DeviceAccess records deleted: ${accessDeleted}`);
+    logger.info(`🗑️ DeviceAccess records deleted: ${accessDeleted}`);
     
     // ✅ ۵. حذف خود دستگاه
     await device.destroy();
-    console.log(`✅ Device ${device.id} deleted successfully`);
+    logger.info(`✅ Device deleted successfully`);
     
     res.json({ 
       success: true, 
@@ -298,7 +299,7 @@ router.delete('/devices/:id', authenticate, async (req, res) => {
     });
     
   } catch (err) { 
-    console.error('❌ Delete device error:', err.name, err.message);
+    logger.error('Delete device error:', err);
     res.status(500).json({ 
       success: false, 
       message: err.message || 'خطای سرور در حذف دستگاه' 
@@ -380,7 +381,7 @@ router.get('/scenarios-overview', authenticate, async (req, res) => {
     }));
     res.json({ success: true, data: formatted });
   } catch (err) {
-    console.error('❌ Scenarios overview error:', err);
+    logger.error('Scenarios overview error:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -406,7 +407,7 @@ router.post('/scenarios', authenticate, async (req, res) => {
         return res.status(400).json({ success: false, message: 'فرمت تاریخ نامعتبر است' });
       }
       datetimeToSave = d; // ← ← ← ذخیره‌ی مستقیم تاریخ میلادی
-      console.log(`📅 Saved datetime (miladi): "${datetimeToSave.toISOString()}"`);
+      logger.debug(`📅 Saved datetime: "${datetimeToSave.toISOString()}"`);
     }
     
     const newScenario = await Scenario.create({ 
@@ -424,7 +425,7 @@ router.post('/scenarios', authenticate, async (req, res) => {
     
     res.status(201).json({ success: true, message: 'سناریو اضافه شد', data: newScenario });
   } catch (err) {
-    console.error('❌ Create scenario error:', err);
+    logger.error('Create scenario error:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -436,7 +437,7 @@ router.delete('/scenarios/:id', authenticate, async (req, res) => {
     await scenario.destroy();
     res.json({ success: true, message: 'سناریو حذف شد' });
   } catch (err) {
-    console.error('❌ Delete scenario error:', err);
+    logger.error('Delete scenario error:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -448,7 +449,7 @@ router.get('/devices/:deviceId/scenarios', authenticate, async (req, res) => {
     const scenarios = await Scenario.findAll({ where: { deviceId: req.params.deviceId }, order: [['createdAt', 'DESC']] });
     res.json({ success: true, data: scenarios });
   } catch (err) {
-    console.error('❌ Get device scenarios error:', err);
+    logger.error('Get device scenarios error:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -487,7 +488,7 @@ router.post('/pairing/confirm', authenticate, async (req, res) => {
     
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('❌ Pairing confirm error:', err);
+    logger.error('Pairing confirm error:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -544,7 +545,7 @@ router.post('/spaces', authenticate, async (req, res) => {
     });
     
   } catch (err) {
-    console.error('❌ Create space error:', err);
+    logger.error('Create space error:', err);
     res.status(500).json({ 
       success: false, 
       message: err.message || 'خطای سرور در ذخیره مکان' 
@@ -577,7 +578,7 @@ router.put('/spaces/:id', authenticate, async (req, res) => {
     res.json({ success: true, message: 'مکان بروزرسانی شد', data: space });
     
   } catch (err) {
-    console.error('❌ Update space error:', err);
+    logger.error('Update space error:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -603,7 +604,7 @@ router.delete('/spaces/:id', authenticate, async (req, res) => {
     res.json({ success: true, message: 'مکان حذف شد' });
     
   } catch (err) {
-    console.error('❌ Delete space error:', err);
+    logger.error('Delete space error:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
