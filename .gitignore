@@ -1,9 +1,13 @@
-# این پوشه‌ها نباید آپلود شوند (چون با یک دستور ساده ساخته می‌شوند)
-node_modules/
-dist/
-build/
-*.log
+```
+# Environment files
+.env
+.env.local
+*.env.*
 
-# فایل‌های سیستمی
-.DS_Store
-Thumbs.db
+# Logs and temp files
+*.log
+*.tmp
+
+# Editors
+.vscode/
+```
