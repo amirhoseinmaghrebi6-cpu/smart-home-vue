@@ -11,3 +11,10 @@
 # Editors
 .vscode/
 ```
+# Environment files (Secrets)
+.env
+.env.*
+backend/.env
+docker-compose.env
+docker-compose.env.local
+*.local
