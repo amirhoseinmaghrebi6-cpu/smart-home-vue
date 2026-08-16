@@ -178,35 +178,64 @@ startServer()
 
 // ✅ ۸. قطع اتصال‌ها هنگام shutdown (Graceful Shutdown)
 // ✅ ۸. قطع اتصال‌ها هنگام shutdown (Graceful Shutdown)
-process.on('SIGINT', async () => {
-  console.log('🛑 Shutting down gracefully...')
+// ✅ Graceful Shutdown Handler
+async function gracefulShutdown(signal) {
+  console.log(`🛑 Received ${signal}. Shutting down gracefully...`)
+  
+  const SHUTDOWN_TIMEOUT = 30000 // 30 seconds timeout
+  const shutdownTimeout = setTimeout(() => {
+    console.error('❌ Shutdown timeout reached. Forcing exit.')
+    process.exit(1)
+  }, SHUTDOWN_TIMEOUT)
+  
   try {
-    // ۱. ✅ توقف زمان‌بند سناریوها (این خط را اضافه کنید)
+    // ۱. توقف تمام زمان‌بندها
+    console.log('⏹️ Stopping scenario schedulers...')
     mqttService.stopScenarioScheduler()
-
-    // ۲. ✅ توقف پاک‌سازی سناریوها
-mqttService.stopScenarioCleanup()
+    mqttService.stopScenarioCleanup()
     
-    // ۲. قطع MQTT
-    mqttService.disconnect()
+    // ۲. اجرای graceful shutdown برای MQTT Service
+    console.log('🔌 Shutting down MQTT service...')
+    await mqttService.gracefulShutdown()
     
     // ۳. بستن تمام اتصالات Socket.io
+    console.log('🔌 Closing Socket.io connections...')
     io.close()
     console.log('✅ Socket.io closed')
     
     // ۴. بستن دیتابیس
+    console.log('🗄️ Closing database connections...')
     await sequelize.close()
+    console.log('✅ Database closed')
     
     // ۵. بستن سرور HTTP
+    console.log('🌐 Closing HTTP server...')
     server.close(() => {
       console.log('✅ HTTP server closed')
+      clearTimeout(shutdownTimeout)
       process.exit(0)
     })
     
   } catch (err) {
     console.error('❌ Shutdown error:', err)
+    clearTimeout(shutdownTimeout)
     process.exit(1)
   }
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
+process.on('SIGINT', () => gracefulShutdown('SIGINT'))
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('❌ Uncaught Exception:', err)
+  gracefulShutdown('uncaughtException')
+})
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason)
+  gracefulShutdown('unhandledRejection')
 })
 
 // ✅ اکسپورت app برای تست‌ها

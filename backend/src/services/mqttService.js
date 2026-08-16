@@ -696,6 +696,36 @@ function stopScenarioCleanup() {
   }
 }
 
+// ✅ Graceful Shutdown Handler for MQTT Service
+async function gracefulShutdown() {\
+  console.log('🛑 MQTT Service: Starting graceful shutdown...');\
+  \
+  // Stop all schedulers first\
+  stopScenarioScheduler();\
+  stopScenarioCleanup();\
+  \
+  // Clear health check interval\
+  if (connectionHealthCheckInterval) {\
+    clearInterval(connectionHealthCheckInterval);\
+    connectionHealthCheckInterval = null;\
+  }\
+  \
+  // Disconnect MQTT client if connected\
+  if (client) {\
+    return new Promise((resolve) => {\
+      console.log('🔌 Disconnecting MQTT client...');\
+      client.end(true, {}, () => {\
+        console.log('✅ MQTT client disconnected successfully');\
+        client = null;\
+        isConnected = false;\
+        resolve();\
+      });\
+    });\
+  }\
+  \
+  console.log('✅ MQTT Service shutdown complete');\
+}\
+
 module.exports = {
   connect,
   disconnect,
@@ -712,6 +742,7 @@ module.exports = {
   stopScenarioScheduler,
   startScenarioCleanup,
   stopScenarioCleanup,
+  gracefulShutdown,
   // ✅ Export health check functions for testing and monitoring
   getReconnectAttempts: () => reconnectAttempts,
   isConnectionHealthy: () => client?.connected || false
