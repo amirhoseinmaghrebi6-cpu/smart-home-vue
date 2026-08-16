@@ -1,11 +1,11 @@
-// backend/src/services/mqttService.js
+﻿// backend/src/services/mqttService.js
 const mqtt = require('mqtt');
 const { Device, DeviceAccess } = require('../models');
 
 const pendingPairings = new Map();
 const syncPendingDevices = new Set();
 
-// ✅ MQTT Retry Configuration with Exponential Backoff
+// âœ… MQTT Retry Configuration with Exponential Backoff
 const MQTT_RETRY_CONFIG = {
   maxRetries: 5,
   initialDelay: 1000, // 1 second
@@ -22,7 +22,7 @@ const MQTT_CONFIG = {
     reconnectPeriod: 5000,
     username: process.env.MQTT_USER || undefined,
     password: process.env.MQTT_PASSWORD || undefined,
-    // ✅ Enhanced connection options
+    // âœ… Enhanced connection options
     rejectUnauthorized: false, // Set to true in production with proper certs
     protocolVersion: 4
   }
@@ -33,13 +33,13 @@ let isConnected = false;
 let reconnectAttempts = 0;
 let connectionHealthCheckInterval = null;
 
-// ✅ Health check for MQTT connection
+// âœ… Health check for MQTT connection
 function startConnectionHealthCheck() {
   if (connectionHealthCheckInterval) clearInterval(connectionHealthCheckInterval);
   
   connectionHealthCheckInterval = setInterval(() => {
     if (client && !client.connected && isConnected) {
-      console.warn('⚠️ MQTT connection health check failed - client disconnected');
+      console.warn('âš ï¸ MQTT connection health check failed - client disconnected');
       isConnected = false;
       reconnectAttempts = 0;
     }
@@ -52,39 +52,39 @@ async function connect() {
       client = mqtt.connect(MQTT_CONFIG.host, MQTT_CONFIG.options);
 
       client.on('connect', () => {
-        console.log('🔗 Connected to Mosquitto MQTT Broker');
+        console.log('ðŸ”— Connected to Mosquitto MQTT Broker');
         isConnected = true;
         reconnectAttempts = 0; // Reset on successful connection
         
         client.subscribe('sh/+/status', (err) => {
-          if (err) console.error('❌ Failed to subscribe to sh/+/status:', err);
-          else console.log('📡 Subscribed to sh/+/status');
+          if (err) console.error('âŒ Failed to subscribe to sh/+/status:', err);
+          else console.log('ðŸ“¡ Subscribed to sh/+/status');
         });
         
         client.subscribe('sh/+/pair', (err) => {
-          if (err) console.error('❌ Failed to subscribe to sh/+/pair:', err);
-          else console.log('📡 Subscribed to sh/+/pair');
+          if (err) console.error('âŒ Failed to subscribe to sh/+/pair:', err);
+          else console.log('ðŸ“¡ Subscribed to sh/+/pair');
         });
 
         client.subscribe('sh/+/sync', (err) => {
-          if (err) console.error('❌ Failed to subscribe to sh/+/sync:', err);
-          else console.log('📡 Subscribed to sh/+/sync');
+          if (err) console.error('âŒ Failed to subscribe to sh/+/sync:', err);
+          else console.log('ðŸ“¡ Subscribed to sh/+/sync');
         });
         
-        // ✅ Start health check after successful connection
+        // âœ… Start health check after successful connection
         startConnectionHealthCheck();
         
         resolve();
       });
 
       client.on('error', (err) => {
-        console.error('❌ MQTT connection error:', err);
+        console.error('âŒ MQTT connection error:', err);
         isConnected = false;
         // Don't reject here - let reconnection handle it
       });
 
       client.on('offline', () => {
-        console.warn('⚠️ MQTT client offline');
+        console.warn('âš ï¸ MQTT client offline');
         isConnected = false;
       });
 
@@ -94,17 +94,17 @@ async function connect() {
           MQTT_RETRY_CONFIG.initialDelay * Math.pow(MQTT_RETRY_CONFIG.factor, reconnectAttempts - 1),
           MQTT_RETRY_CONFIG.maxDelay
         );
-        console.log(`🔄 Reconnecting to MQTT broker... (Attempt ${reconnectAttempts}/${MQTT_RETRY_CONFIG.maxRetries}, next retry in ${delay}ms)`);
+        console.log(`ðŸ”„ Reconnecting to MQTT broker... (Attempt ${reconnectAttempts}/${MQTT_RETRY_CONFIG.maxRetries}, next retry in ${delay}ms)`);
         
         if (reconnectAttempts >= MQTT_RETRY_CONFIG.maxRetries) {
-          console.error('❌ Max MQTT reconnection attempts reached. Please check broker status.');
+          console.error('âŒ Max MQTT reconnection attempts reached. Please check broker status.');
           // Reset counter after max retries
           reconnectAttempts = 0;
         }
       });
 
       client.on('close', () => {
-        console.log('🔌 MQTT connection closed');
+        console.log('ðŸ”Œ MQTT connection closed');
         isConnected = false;
       });
 
@@ -113,12 +113,12 @@ async function connect() {
           const payload = JSON.parse(message.toString());
           await handleMessage(topic, payload);
         } catch (err) {
-          console.error('❌ Error processing MQTT message:', err);
+          console.error('âŒ Error processing MQTT message:', err);
         }
       });
 
     } catch (err) {
-      console.error('❌ Failed to initialize MQTT client:', err);
+      console.error('âŒ Failed to initialize MQTT client:', err);
       reject(err);
     }
   });
@@ -135,10 +135,10 @@ async function handleMessage(topic, payload) {
   const espDeviceId = match[1];
   const messageType = match[2];
 
-  console.log(`📨 Received ${messageType} from ESP ${espDeviceId}:`, payload);
+  console.log(`ðŸ“¨ Received ${messageType} from ESP ${espDeviceId}:`, payload);
 
   if (messageType === 'sync' && payload.action === 'request_state') {
-    console.log(`🔄 Sync request received from ESP ${espDeviceId}`);
+    console.log(`ðŸ”„ Sync request received from ESP ${espDeviceId}`);
     
     syncPendingDevices.add(espDeviceId);
 
@@ -163,12 +163,12 @@ async function handleMessage(topic, payload) {
       const responseTopic = `sh/${espDeviceId}/sync/response`;
       client.publish(responseTopic, JSON.stringify(responsePayload), { qos: 1 });
       
-      console.log(`✅ Sent state sync (Source of Truth) to ${espDeviceId}:`, responsePayload);
+      console.log(`âœ… Sent state sync (Source of Truth) to ${espDeviceId}:`, responsePayload);
     }
 
     setTimeout(() => {
       syncPendingDevices.delete(espDeviceId);
-      console.log(`✅ Sync period ended for ${espDeviceId}`);
+      console.log(`âœ… Sync period ended for ${espDeviceId}`);
     }, 8000);
     return;
   }
@@ -187,7 +187,7 @@ async function handleDeviceStatus(espDeviceId, data) {
 
     const online = parseBool(data.online);
 
-    // ✅ ← ← ← حیاتی: همیشه emit کن (حتی اگر در sync period هستیم)
+    // âœ… â† â† â† Ø­ÛŒØ§ØªÛŒ: Ù‡Ù…ÛŒØ´Ù‡ emit Ú©Ù† (Ø­ØªÛŒ Ø§Ú¯Ø± Ø¯Ø± sync period Ù‡Ø³ØªÛŒÙ…)
     try {
       const io = require('../app').get('socketio');
       if (io) {
@@ -202,15 +202,15 @@ async function handleDeviceStatus(espDeviceId, data) {
           online,
           timestamp: new Date().toISOString()
         });
-        console.log(`📡 Real-time update sent to frontend for device ${devices[0].id}`);
+        console.log(`ðŸ“¡ Real-time update sent to frontend for device ${devices[0].id}`);
       }
     } catch (e) {
-      console.log(`⚠️ Socket emit failed: ${e.message}`);
+      console.log(`âš ï¸ Socket emit failed: ${e.message}`);
     }
 
-    // ✅ حالا چک کن آیا در sync period هستیم
+    // âœ… Ø­Ø§Ù„Ø§ Ú†Ú© Ú©Ù† Ø¢ÛŒØ§ Ø¯Ø± sync period Ù‡Ø³ØªÛŒÙ…
     if (syncPendingDevices.has(espDeviceId)) {
-      console.log(`⏭️ Ignoring DB update from ${espDeviceId} during sync`);
+      console.log(`â­ï¸ Ignoring DB update from ${espDeviceId} during sync`);
       return;
     }
 
@@ -229,7 +229,7 @@ async function handleDeviceStatus(espDeviceId, data) {
 
       const currentStatus = channels[chIndex]?.status ?? device.status;
 
-      // ✅ فقط اگر آنلاین است و تغییر واقعی دارد، آپدیت کن
+      // âœ… ÙÙ‚Ø· Ø§Ú¯Ø± Ø¢Ù†Ù„Ø§ÛŒÙ† Ø§Ø³Øª Ùˆ ØªØºÛŒÛŒØ± ÙˆØ§Ù‚Ø¹ÛŒ Ø¯Ø§Ø±Ø¯ØŒ Ø¢Ù¾Ø¯ÛŒØª Ú©Ù†
       if (online && currentStatus !== chStatusFromESP) {
         const newChannels = [...channels];
         if (chIndex !== undefined) {
@@ -250,24 +250,24 @@ async function handleDeviceStatus(espDeviceId, data) {
           { where: { id: device.id } }
         );
 
-        console.log(`✅ Real change from ESP: device ${device.id} ch${chIndex+1}=${chStatusFromESP}`);
+        console.log(`âœ… Real change from ESP: device ${device.id} ch${chIndex+1}=${chStatusFromESP}`);
       } else if (device.online !== online) {
         await Device.update(
           { online: online, lastSeen: new Date() },
           { where: { id: device.id } }
         );
-        console.log(`📡 Only online updated for ${device.id}: ${online}`);
+        console.log(`ðŸ“¡ Only online updated for ${device.id}: ${online}`);
       }
     }
 
   } catch (err) {
-    console.error(`❌ Failed to sync status for ESP ${espDeviceId}:`, err);
+    console.error(`âŒ Failed to sync status for ESP ${espDeviceId}:`, err);
   }
 }
 
 async function handlePairingRequest(espDeviceId, data) {
   try {
-    console.log(`🔐 Pairing request from ESP ${espDeviceId}:`, data);
+    console.log(`ðŸ” Pairing request from ESP ${espDeviceId}:`, data);
     
     pendingPairings.set(espDeviceId, {
       ...data,
@@ -283,9 +283,9 @@ async function handlePairingRequest(espDeviceId, data) {
     });
     client.publish(responseTopic, payload, { qos: 1 });
     
-    console.log(`📤 Sent pairing response to ${responseTopic}`);
+    console.log(`ðŸ“¤ Sent pairing response to ${responseTopic}`);
   } catch (err) {
-    console.error(`❌ Failed to process pairing for ESP ${espDeviceId}:`, err);
+    console.error(`âŒ Failed to process pairing for ESP ${espDeviceId}:`, err);
   }
 }
 
@@ -312,15 +312,15 @@ async function confirmPairing(espDeviceId, virtualDeviceData) {
     if (!pending) throw new Error('Pairing request not found');
 
     const { userId, name, type, icon, spaceId, channelIndex } = virtualDeviceData;
-    if (!userId) throw new Error('userId الزامی است');
-    if (!spaceId) throw new Error('spaceId الزامی است');
+    if (!userId) throw new Error('userId Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª');
+    if (!spaceId) throw new Error('spaceId Ø§Ù„Ø²Ø§Ù…ÛŒ Ø§Ø³Øª');
 
     const existingByEsp = await Device.findOne({
       where: { pairedDeviceId: espDeviceId }
     });
 
     if (existingByEsp) {
-      console.log(`🔄 Sharing existing device ${existingByEsp.id} with user ${userId}`);
+      console.log(`ðŸ”„ Sharing existing device ${existingByEsp.id} with user ${userId}`);
       
       await DeviceAccess.findOrCreate({
         where: { deviceId: existingByEsp.id, userId },
@@ -340,7 +340,7 @@ async function confirmPairing(espDeviceId, virtualDeviceData) {
       });
       
       if (unpairedDevice && unpairedDevice.id !== existingByEsp.id) {
-        console.log(`🗑️ Deleting unpaired duplicate device ${unpairedDevice.id}`);
+        console.log(`ðŸ—‘ï¸ Deleting unpaired duplicate device ${unpairedDevice.id}`);
         await DeviceAccess.destroy({ where: { deviceId: unpairedDevice.id } });
         await unpairedDevice.destroy();
       }
@@ -359,11 +359,11 @@ async function confirmPairing(espDeviceId, virtualDeviceData) {
         { qos: 1 }
       );
 
-      console.log(`✅ Pairing confirmed (shared): ${espDeviceId} -> ${existingByEsp.id}`);
+      console.log(`âœ… Pairing confirmed (shared): ${espDeviceId} -> ${existingByEsp.id}`);
       return { success: true, device: existingByEsp, shared: true };
     }
     
-    console.log(`🔍 Searching unpaired device for userId: ${userId}, spaceId: ${spaceId}`);
+    console.log(`ðŸ” Searching unpaired device for userId: ${userId}, spaceId: ${spaceId}`);
     const existingUnpaired = await Device.findOne({
       where: { userId, spaceId, pairedDeviceId: null },
       order: [['createdAt', 'DESC']]
@@ -372,7 +372,7 @@ async function confirmPairing(espDeviceId, virtualDeviceData) {
     let device;
     
     if (existingUnpaired) {
-      console.log(`🔄 Linking existing unpaired device ${existingUnpaired.id} to ESP ${espDeviceId}`);
+      console.log(`ðŸ”„ Linking existing unpaired device ${existingUnpaired.id} to ESP ${espDeviceId}`);
       
       await existingUnpaired.update({
         pairedDeviceId: espDeviceId,
@@ -382,10 +382,10 @@ async function confirmPairing(espDeviceId, virtualDeviceData) {
       });
       
       const verified = await Device.findByPk(existingUnpaired.id, { attributes: ['id', 'pairedDeviceId'] });
-      console.log(`✅ Verified pairedDeviceId after update: ${verified?.pairedDeviceId}`);
+      console.log(`âœ… Verified pairedDeviceId after update: ${verified?.pairedDeviceId}`);
       
       if (verified?.pairedDeviceId !== espDeviceId) {
-        console.error(`❌ CRITICAL: pairedDeviceId update FAILED!`);
+        console.error(`âŒ CRITICAL: pairedDeviceId update FAILED!`);
         throw new Error('Failed to update pairedDeviceId in database');
       }
       
@@ -397,7 +397,7 @@ async function confirmPairing(espDeviceId, virtualDeviceData) {
         userId,
         name: name || `Device-${espDeviceId.slice(0, 4)}`,
         type: type || 'switch1',
-        icon: icon || '🔘',
+        icon: icon || 'ðŸ”˜',
         spaceId,
         pairedDeviceId: espDeviceId,
         channelIndex: channelIndex ?? 0,
@@ -405,7 +405,7 @@ async function confirmPairing(espDeviceId, virtualDeviceData) {
         lastSeen: new Date(),
         timezone: 'Asia/Tehran'
       });
-      console.log(`🆕 Created new device ${device.id} with pairedDeviceId=${espDeviceId}`);
+      console.log(`ðŸ†• Created new device ${device.id} with pairedDeviceId=${espDeviceId}`);
     }
 
     await DeviceAccess.findOrCreate({
@@ -427,23 +427,23 @@ async function confirmPairing(espDeviceId, virtualDeviceData) {
       { qos: 1 }
     );
 
-    console.log(`✅ Pairing confirmed: ${espDeviceId} -> ${device.id}`);
+    console.log(`âœ… Pairing confirmed: ${espDeviceId} -> ${device.id}`);
     return { success: true, device, shared: false };
 
   } catch (err) {
-    console.error('❌ Failed to confirm pairing:', err);
+    console.error('âŒ Failed to confirm pairing:', err);
     throw err;
   }
 }
 
-// ==================== 🔑 ارسال فرمان — با Device.update() مستقیم ====================
+// ==================== ðŸ”‘ Ø§Ø±Ø³Ø§Ù„ ÙØ±Ù…Ø§Ù† â€” Ø¨Ø§ Device.update() Ù…Ø³ØªÙ‚ÛŒÙ… ====================
 async function sendCommand(virtualDeviceId, channelIndex, state) {
   try {
-    console.log(`🔍 sendCommand called: virtualDeviceId=${virtualDeviceId}, channel=${channelIndex}, state=${state}`);
+    console.log(`ðŸ” sendCommand called: virtualDeviceId=${virtualDeviceId}, channel=${channelIndex}, state=${state}`);
     
     const device = await Device.findByPk(virtualDeviceId);
     if (!device) {
-      console.error(`❌ Device ${virtualDeviceId} NOT FOUND`);
+      console.error(`âŒ Device ${virtualDeviceId} NOT FOUND`);
       return false;
     }
 
@@ -464,7 +464,7 @@ async function sendCommand(virtualDeviceId, channelIndex, state) {
       newChannels[chIdx] = { ...newChannels[chIdx], status: state };
     }
 
-    // ✅ ← ← ← حیاتی: Device.update() مستقیم — تضمین می‌کند SQL UPDATE اجرا می‌شود!
+    // âœ… â† â† â† Ø­ÛŒØ§ØªÛŒ: Device.update() Ù…Ø³ØªÙ‚ÛŒÙ… â€” ØªØ¶Ù…ÛŒÙ† Ù…ÛŒâ€ŒÚ©Ù†Ø¯ SQL UPDATE Ø§Ø¬Ø±Ø§ Ù…ÛŒâ€ŒØ´ÙˆØ¯!
     await Device.update(
       {
         status: state,
@@ -474,12 +474,12 @@ async function sendCommand(virtualDeviceId, channelIndex, state) {
       { where: { id: virtualDeviceId } }
     );
 
-    // ✅ تأیید: دوباره از دیتابیس بخوان تا مطمئن شوی
+    // âœ… ØªØ£ÛŒÛŒØ¯: Ø¯ÙˆØ¨Ø§Ø±Ù‡ Ø§Ø² Ø¯ÛŒØªØ§Ø¨ÛŒØ³ Ø¨Ø®ÙˆØ§Ù† ØªØ§ Ù…Ø·Ù…Ø¦Ù† Ø´ÙˆÛŒ
     const verified = await Device.findByPk(virtualDeviceId, { attributes: ['channels', 'status'] });
-    console.log(`✅ DB Update VERIFIED: channels[0]=${verified?.channels?.[0]?.status}, status=${verified?.status}`);
+    console.log(`âœ… DB Update VERIFIED: channels[0]=${verified?.channels?.[0]?.status}, status=${verified?.status}`);
 
     if (!device.pairedDeviceId) {
-      console.error(`❌ Device ${virtualDeviceId} has no pairedDeviceId`);
+      console.error(`âŒ Device ${virtualDeviceId} has no pairedDeviceId`);
       return false;
     }
 
@@ -496,14 +496,14 @@ async function sendCommand(virtualDeviceId, channelIndex, state) {
       client.publish(topic, payload, { qos: 1 }, (err) => {
         if (err) reject(err);
         else {
-          console.log(`✅ MQTT command published`);
+          console.log(`âœ… MQTT command published`);
           resolve(true);
         }
       });
     });
 
   } catch (err) {
-    console.error(`❌ Failed to send command:`, err);
+    console.error(`âŒ Failed to send command:`, err);
     throw err;
   }
 }
@@ -519,11 +519,11 @@ async function executeScenario(virtualDeviceId, scenario) {
   const { action, channelIndex } = scenario;
   const state = action === 'on';
   await toggleDevice(virtualDeviceId, { action, channelIndex });
-  console.log(`🎬 Executed scenario on device ${virtualDeviceId}:`, { action, channelIndex });
+  console.log(`ðŸŽ¬ Executed scenario on device ${virtualDeviceId}:`, { action, channelIndex });
 }
 
 function disconnect() {
-  // ✅ Stop health check interval
+  // âœ… Stop health check interval
   if (connectionHealthCheckInterval) {
     clearInterval(connectionHealthCheckInterval);
     connectionHealthCheckInterval = null;
@@ -531,7 +531,7 @@ function disconnect() {
   
   if (client) {
     client.end(true, () => {
-      console.log('🔌 MQTT client disconnected');
+      console.log('ðŸ”Œ MQTT client disconnected');
       isConnected = false;
       reconnectAttempts = 0;
       client = null;
@@ -545,9 +545,9 @@ async function checkAndExecuteScenarios() {
     const { Scenario, Device, User, Sequelize } = require('../models');
     const { Op } = Sequelize;
 
-    // قفل کردن اجرا برای جلوگیری از Race Condition
+    // Ù‚ÙÙ„ Ú©Ø±Ø¯Ù† Ø§Ø¬Ø±Ø§ Ø¨Ø±Ø§ÛŒ Ø¬Ù„ÙˆÚ¯ÛŒØ±ÛŒ Ø§Ø² Race Condition
     if (checkAndExecuteScenarios._isRunning) {
-      console.warn('⚠️ Scenario scheduler already running, skipping this round');
+      console.warn('âš ï¸ Scenario scheduler already running, skipping this round');
       return;
     }
     checkAndExecuteScenarios._isRunning = true;
@@ -582,7 +582,7 @@ async function checkAndExecuteScenarios() {
             const scenarioTime = new Date(scenario.datetime);
             if (now >= scenarioTime) {
               shouldExecute = true;
-              // آپدیت وضعیت اجرا به صورت اتمیک
+              // Ø¢Ù¾Ø¯ÛŒØª ÙˆØ¶Ø¹ÛŒØª Ø§Ø¬Ø±Ø§ Ø¨Ù‡ ØµÙˆØ±Øª Ø§ØªÙ…ÛŒÚ©
               await Scenario.update(
                 { executed: true },
                 { 
@@ -591,12 +591,12 @@ async function checkAndExecuteScenarios() {
                 }
               );
               
-              // تأیید آپدیت
+              // ØªØ£ÛŒÛŒØ¯ Ø¢Ù¾Ø¯ÛŒØª
               const updated = await Scenario.findByPk(scenario.id);
               if (updated?.executed) {
                 executedThisRound.add(scenario.id);
               } else {
-                console.warn(`⚠️ Scenario ${scenario.id} was already executed by another process`);
+                console.warn(`âš ï¸ Scenario ${scenario.id} was already executed by another process`);
                 continue;
               }
             }
@@ -620,26 +620,26 @@ async function checkAndExecuteScenarios() {
         }
 
         if (shouldExecute) {
-          // جمع‌آوری Promiseها برای اجرای موازی ایمن
+          // Ø¬Ù…Ø¹â€ŒØ¢ÙˆØ±ÛŒ PromiseÙ‡Ø§ Ø¨Ø±Ø§ÛŒ Ø§Ø¬Ø±Ø§ÛŒ Ù…ÙˆØ§Ø²ÛŒ Ø§ÛŒÙ…Ù†
           executionPromises.push(
             sendCommand(device.id, scenario.channelIndex, scenario.action === 'on')
-              .then(() => console.log(`✅ Scenario ${scenario.id} executed successfully`))
-              .catch(err => console.error(`❌ Scenario ${scenario.id} failed:`, err))
+              .then(() => console.log(`âœ… Scenario ${scenario.id} executed successfully`))
+              .catch(err => console.error(`âŒ Scenario ${scenario.id} failed:`, err))
           );
         }
       } catch (err) {
-        console.error(`❌ Error processing scenario ${scenario?.id}:`, err);
+        console.error(`âŒ Error processing scenario ${scenario?.id}:`, err);
       }
     }
 
-    // انتظار برای تکمیل تمام عملیات اجرایی
+    // Ø§Ù†ØªØ¸Ø§Ø± Ø¨Ø±Ø§ÛŒ ØªÚ©Ù…ÛŒÙ„ ØªÙ…Ø§Ù… Ø¹Ù…Ù„ÛŒØ§Øª Ø§Ø¬Ø±Ø§ÛŒÛŒ
     if (executionPromises.length > 0) {
       await Promise.allSettled(executionPromises);
-      console.log(`📊 Executed ${executionPromises.length} scenario(s) this round`);
+      console.log(`ðŸ“Š Executed ${executionPromises.length} scenario(s) this round`);
     }
 
   } catch (err) {
-    console.error('❌ Error in checkAndExecuteScenarios:', err);
+    console.error('âŒ Error in checkAndExecuteScenarios:', err);
   } finally {
     checkAndExecuteScenarios._isRunning = false;
   }
@@ -650,7 +650,7 @@ let scenarioInterval = null;
 function startScenarioScheduler() {
   if (scenarioInterval) clearInterval(scenarioInterval);
   scenarioInterval = setInterval(checkAndExecuteScenarios, 30 * 1000);
-  console.log('✅ Scenario scheduler started (checks every 30s)');
+  console.log('âœ… Scenario scheduler started (checks every 30s)');
 }
 
 function stopScenarioScheduler() {
@@ -674,10 +674,10 @@ async function cleanupExpiredScenarios() {
     });
     
     if (deleted > 0) {
-      console.log(`🗑️ Cleaned up ${deleted} expired scenario(s)`);
+      console.log(`ðŸ—‘ï¸ Cleaned up ${deleted} expired scenario(s)`);
     }
   } catch (err) {
-    console.error('❌ Error cleaning up scenarios:', err);
+    console.error('âŒ Error cleaning up scenarios:', err);
   }
 }
 
@@ -686,7 +686,7 @@ let cleanupInterval = null;
 function startScenarioCleanup() {
   if (cleanupInterval) clearInterval(cleanupInterval);
   cleanupInterval = setInterval(cleanupExpiredScenarios, 60 * 60 * 1000);
-  console.log('✅ Scenario cleanup scheduler started (runs every hour)');
+  console.log('âœ… Scenario cleanup scheduler started (runs every hour)');
 }
 
 function stopScenarioCleanup() {
@@ -696,35 +696,35 @@ function stopScenarioCleanup() {
   }
 }
 
-// ✅ Graceful Shutdown Handler for MQTT Service
-async function gracefulShutdown() {\
-  console.log('🛑 MQTT Service: Starting graceful shutdown...');\
-  \
-  // Stop all schedulers first\
-  stopScenarioScheduler();\
-  stopScenarioCleanup();\
-  \
-  // Clear health check interval\
-  if (connectionHealthCheckInterval) {\
-    clearInterval(connectionHealthCheckInterval);\
-    connectionHealthCheckInterval = null;\
-  }\
-  \
-  // Disconnect MQTT client if connected\
-  if (client) {\
-    return new Promise((resolve) => {\
-      console.log('🔌 Disconnecting MQTT client...');\
-      client.end(true, {}, () => {\
-        console.log('✅ MQTT client disconnected successfully');\
-        client = null;\
-        isConnected = false;\
-        resolve();\
-      });\
-    });\
-  }\
-  \
-  console.log('✅ MQTT Service shutdown complete');\
-}\
+// âœ… Graceful Shutdown Handler for MQTT Service
+async function gracefulShutdown() {
+  console.log('ðŸ›‘ MQTT Service: Starting graceful shutdown...');
+  
+  // Stop all schedulers first
+  stopScenarioScheduler();
+  stopScenarioCleanup();
+  
+  // Clear health check interval
+  if (connectionHealthCheckInterval) {
+    clearInterval(connectionHealthCheckInterval);
+    connectionHealthCheckInterval = null;
+  }
+  
+  // Disconnect MQTT client if connected
+  if (client) {
+    return new Promise((resolve) => {
+      console.log('ðŸ”Œ Disconnecting MQTT client...');
+      client.end(true, {}, () => {
+        console.log('âœ… MQTT client disconnected successfully');
+        client = null;
+        isConnected = false;
+        resolve();
+      });
+    });
+  }
+  
+  console.log('âœ… MQTT Service shutdown complete');
+}
 
 module.exports = {
   connect,
@@ -743,7 +743,7 @@ module.exports = {
   startScenarioCleanup,
   stopScenarioCleanup,
   gracefulShutdown,
-  // ✅ Export health check functions for testing and monitoring
+  // âœ… Export health check functions for testing and monitoring
   getReconnectAttempts: () => reconnectAttempts,
   isConnectionHealthy: () => client?.connected || false
 };
