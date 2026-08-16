@@ -1,18 +1,36 @@
+﻿'use strict';
+const { Model } = require('sequelize');
+
 module.exports = (sequelize, DataTypes) => {
-  const DeviceAccess = sequelize.define('DeviceAccess', {
-    id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
-      primaryKey: true
+  class DeviceAccess extends Model {
+    static associate(models) {
+      // تعریف روابط برای جلوگیری از خطا
+      DeviceAccess.belongsTo(models.Device, { foreignKey: 'deviceId', as: 'device' });
+      DeviceAccess.belongsTo(models.User, { foreignKey: 'userId', as: 'user' });
+    }
+  }
+  
+  DeviceAccess.init({
+    deviceId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: { model: 'Devices', key: 'id' }
     },
-    role: {
+    userId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: { model: 'Users', key: 'id' }
+    },
+    permissionLevel: {
       type: DataTypes.STRING,
-      defaultValue: 'owner', // owner | editor | viewer
-      allowNull: false
+      allowNull: false,
+      defaultValue: 'read'
     }
   }, {
-    tableName: 'device_accesses',
-    timestamps: true
+    sequelize,
+    modelName: 'DeviceAccess',
+    tableName: 'DeviceAccesses'
   });
+
   return DeviceAccess;
 };
