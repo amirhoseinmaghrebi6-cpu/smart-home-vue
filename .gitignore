@@ -1,29 +1,7 @@
-```
-# Environment files
-.env
-.env.local
-*.env.*
-
-# Logs and temp files
-*.log
-*.tmp
-
-# Editors
-.vscode/
-```
-# Environment files (Secrets)
 .env
 .env.*
-backend/.env
-docker-compose.env
-docker-compose.env.local
-*.local
-
-# Allow example files
-!docker-compose.env.example
-!backend/.env.example
-
-# Secrets
-backend/.env
-.env
-*.env.local
+node_modules/
+backend/node_modules/
+.DS_Store
+dist/
+.vscode/
