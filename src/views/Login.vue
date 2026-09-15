@@ -40,18 +40,18 @@
         <div v-if="qrCodeUrl" class="qr-section">
           <p>این کد را با اپلیکیشن Google Authenticator اسکن کنید:</p>
           <qrcode-vue :value="qrCodeUrl" :size="200" level="H" />
-          <input type="text" v-model="mfaVerifyCode" placeholder="کد ۶ رقمی اپلیکیشن را وارد کنید" />
+          <input type="text" v-model="mfaVerifyCode" placeholder="کد ۶ رقمی اپلیکیشن را وارد کنید" style="width:100%; margin:10px 0; padding:8px;" />
           <button @click="confirmMfa" class="btn-primary">تأیید نهایی</button>
         </div>
         
         <button @click="logout" class="btn-secondary" style="margin-top: 20px;">خروج</button>
       </div>
 
-      <hr v-if="!isLoggedIn" />
+      <hr v-if="!isLoggedIn" style="margin: 20px 0; border: 0; border-top: 1px solid #eee;" />
 
       <!-- دکمه ورود با گوگل (فقط اگر لاگین نیست) -->
       <button v-if="!isLoggedIn" @click="loginWithGoogle" class="btn-google">
-        <img src="https://www.google.com/favicon.ico" alt="G" />
+        <img src="https://www.google.com/favicon.ico" alt="G" style="width:20px;" />
         ورود با حساب گوگل
       </button>
 
@@ -171,7 +171,6 @@ export default {
     };
 
     onMounted(() => {
-      // بررسی پارامترهای URL برای لاگین گوگل
       const urlParams = new URLSearchParams(window.location.search);
       const tokenParam = urlParams.get('token');
       if (tokenParam) {
@@ -194,7 +193,7 @@ export default {
 
 <style scoped>
 .login-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f0f2f5; }
-.login-box { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
+.login-box { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; color: #333; }
 .form-group { margin-bottom: 1rem; text-align: left; }
 .form-group label { display: block; margin-bottom: 0.5rem; color: #333; }
 .form-group input { width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
@@ -202,7 +201,6 @@ export default {
 .btn-secondary { width: 100%; padding: 0.75rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 0.5rem; }
 .btn-warning { width: 100%; padding: 0.75rem; background: #ffc107; color: #333; border: none; border-radius: 4px; cursor: pointer; margin-top: 1rem; }
 .btn-google { width: 100%; padding: 0.75rem; background: white; color: #333; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 1rem; }
-.btn-google img { width: 20px; }
 .error-text { color: red; margin-top: 1rem; font-size: 0.9rem; }
 .success-text { color: green; margin-top: 1rem; font-weight: bold; }
 .qr-section { margin-top: 1.5rem; border-top: 1px solid #eee; padding-top: 1rem; }

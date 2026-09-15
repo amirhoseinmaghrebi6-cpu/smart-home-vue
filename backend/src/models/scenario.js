@@ -12,11 +12,21 @@ module.exports = (sequelize, DataTypes) => {
     
     // برای type: 'recurring'
     time: { type: DataTypes.STRING, allowNull: true }, // فرمت "HH:mm"
-    days: { 
-      type: DataTypes.ARRAY(DataTypes.INTEGER), 
-      allowNull: true,
-      defaultValue: [] // [0=Sun, 1=Mon, ..., 6=Sat]
-    },
+// Sequelize به صورت خودکار آرایه جاوااسکریپت را به JSON تبدیل کرده و در متن ذخیره می‌کند
+days: { 
+  type: DataTypes.TEXT, 
+  allowNull: true,
+  defaultValue: '[]', // مقدار پیش‌فرض را به صورت رشته JSON تنظیم می‌کنیم
+  get() {
+    // هنگام خواندن از دیتابیس، رشته JSON را به آرایه تبدیل کن
+    const val = this.getDataValue('days');
+    return val ? (typeof val === 'string' ? JSON.parse(val) : val) : [];
+  },
+  set(val) {
+    // هنگام نوشتن در دیتابیس، آرایه را به رشته JSON تبدیل کن
+    this.setDataValue('days', val ? JSON.stringify(val) : '[]');
+  }
+},
     
     // عملیات
     action: { type: DataTypes.STRING, allowNull: false }, // 'on' یا 'off'

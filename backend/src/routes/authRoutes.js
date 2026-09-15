@@ -1,12 +1,23 @@
-// backend/src/routes/authRoutes.js
-const express = require('express')
-const router = express.Router()
-const { register, login, me, logout } = require('../controllers/authController')
-const { authenticate } = require('../middleware/authMiddleware')
+﻿const express = require('express');
+const router = express.Router();
+const { register, login, me, logout, setupMFA, verifyMFA, googleCallback } = require('../controllers/authController');
+const { authenticate } = require('../middleware/authMiddleware');
+const passport = require('passport');
 
-router.post('/register', register)
-router.post('/login', login)
-router.post('/logout', authenticate, logout)
-router.get('/me', authenticate, me)
+// روت‌های عمومی
+router.post('/register', register);
+router.post('/login', login);
 
-module.exports = router
+// روت‌های محافظت شده
+router.post('/logout', authenticate, logout);
+router.get('/me', authenticate, me);
+
+// روت‌های MFA
+router.get('/mfa/setup', authenticate, setupMFA);
+router.post('/mfa/verify', authenticate, verifyMFA);
+
+// روت‌های گوگل
+router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+router.get('/google/callback', passport.authenticate('google', { session: false, failureRedirect: '/login' }), googleCallback);
+
+module.exports = router;

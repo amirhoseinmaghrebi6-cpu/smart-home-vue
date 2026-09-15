@@ -1,24 +1,95 @@
-﻿// backend/src/models/user.js
-module.exports = (sequelize, DataTypes) => {
-  const User = sequelize.define('User', {
-    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
-    name: { type: DataTypes.STRING, allowNull: false },
-    email: { type: DataTypes.STRING, allowNull: false, unique: true },
-    timezone: {
-  type: DataTypes.STRING,
-  defaultValue: 'Asia/Tehran',  // Ù¾ÛŒØ´â€ŒÙØ±Ø¶ Ø¨Ø±Ø§ÛŒ Ú©Ø§Ø±Ø¨Ø±Ø§Ù† Ø§ÛŒØ±Ø§Ù†ÛŒ
-  validate: {
-    isIn: [['Asia/Tehran', 'Europe/London', 'America/New_York', 'Asia/Dubai', 'UTC']] // ÛŒØ§ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ø§Ø² Ú©ØªØ§Ø¨Ø®Ø§Ù†Ù‡â€ŒÛŒ timezone-validator
-  }
-},
-    password: { type: DataTypes.STRING, allowNull: false },
-    phone: DataTypes.STRING,
-    preferences: { type: DataTypes.JSONB, defaultValue: { lang: 'fa', theme: 0, calendarSystem: 'shamsi' } }
-  }, { tableName: 'users', timestamps: true });
+﻿'use strict';
+const { Model } = require('sequelize');
+const bcrypt = require('bcryptjs');
 
-  User.associate = (models) => {
-    User.hasMany(models.Device, { foreignKey: 'userId', as: 'devices' });
-    User.hasMany(models.EmergencyContact, { foreignKey: 'userId', as: 'emergencyContacts' });
-  };
+module.exports = (sequelize, DataTypes) => {
+  class User extends Model {
+    static associate(models) {
+      User.hasMany(models.Device, { foreignKey: 'ownerId', as: 'devices' });
+      User.hasMany(models.Scenario, { foreignKey: 'userId', as: 'scenarios' });
+      User.hasMany(models.EmergencyContact, { foreignKey: 'userId', as: 'emergencyContacts' });
+      User.belongsToMany(models.Device, { through: models.DeviceAccess, as: 'sharedDevices', foreignKey: 'userId' });
+    }
+
+    // متد کمکی برای هش کردن رمز (فقط اگر خام باشد)
+    async setPassword(password) {
+      if (!password) return;
+      // اگر قبلاً هش نشده (طول کمتر از 60)، هش کن
+      if (this.passwordHash.length < 60) {
+        this.passwordHash = await bcrypt.hash(password, 12); // Salt rounds = 12 برای امنیت بالاتر
+      }
+    }
+
+    // متد بررسی رمز عبور
+    checkPassword(password) {
+      if (!this.passwordHash) return false;
+      return bcrypt.compare(password, this.passwordHash);
+    }
+  }
+
+  User.init({
+    email: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+      validate: { isEmail: true, notEmpty: true }
+    },
+    passwordHash: {
+      type: DataTypes.STRING,
+      allowNull: true // برای کاربران گوگل ممکن است خالی باشد
+    },
+    name: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: 'کاربر مهمان'
+    },
+    role: {
+      type: DataTypes.STRING,
+      defaultValue: 'user',
+      validate: { isIn: [['user', 'admin']] }
+    },
+    googleId: {
+      type: DataTypes.STRING,
+      unique: true,
+      allowNull: true
+    },
+    mfaSecret: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    isMfaEnabled: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
+    },
+    isVerified: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
+    }
+  }, {
+    sequelize,
+    modelName: 'User',
+    tableName: 'Users',
+    hooks: {
+      beforeCreate: async (user) => {
+        // اگر کاربر گوگلی نیست و رمز دارد، هش کن
+        if (!user.googleId && user.passwordHash) {
+          user.passwordHash = await bcrypt.hash(user.passwordHash, 12);
+        }
+        if (user.googleId) {
+          user.isVerified = true;
+          if (!user.name) user.name = user.email.split('@')[0];
+        }
+      },
+      beforeUpdate: async (user) => {
+        // اگر رمز تغییر کرد و کاربر گوگلی نیست، دوباره هش کن
+        if (user.changed('passwordHash') && !user.googleId && user.passwordHash) {
+           if (user.passwordHash.length < 60) {
+             user.passwordHash = await bcrypt.hash(user.passwordHash, 12);
+           }
+        }
+      }
+    }
+  });
+
   return User;
 };
